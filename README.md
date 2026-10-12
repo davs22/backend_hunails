@@ -50,7 +50,7 @@ A API foi projetada com fortes requisitos de segurança:
 
 A API é totalmente auto-documentada usando OpenAPI. Com a aplicação em execução, acesse a interface interativa do Swagger pelo navegador para testar os endpoints:
 
-👉 [**http://localhost:8080/swagger-ui.html**](http://localhost:8080/swagger-ui.html)
+👉 [**https://backend-hunails.onrender.com/swagger-ui/index.html**](https://backend-hunails.onrender.com/swagger-ui/index.html)
 
 *(O JSON completo do OpenAPI também pode ser acessado em `/v3/api-docs`)*
 
