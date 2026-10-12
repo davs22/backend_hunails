@@ -1,85 +1,133 @@
-# HuNails — backend
+## 📖 Sobre o Projeto
 
-API de cadastro e autenticação, perfis de clientes e manicures, busca de manicures, publicações, interações, seguimento, agendamentos, denúncias e eventos de analytics. O código da aplicação está em `manicure_backend/`.
+O **HuNails** é um sistema projetado para digitalizar e otimizar o mercado de beleza voltado para manicures. Este repositório contém o **backend** da aplicação, construído com arquitetura em camadas e focado em segurança, performance e escalabilidade.
 
-## Tecnologias e organização
+A API gerencia desde a autenticação de usuários (clientes e manicures) até fluxos complexos de agendamento de horários, perfis públicos dinâmicos, publicações de portfólio (feed) e sistema de interações sociais (curtidas e seguidores).
 
-Java 17, Spring Boot 3.2.3, Spring Security, JWT, Spring Data JPA, PostgreSQL, Maven Wrapper e Springdoc OpenAPI. Em `src/main/java/com/example/manicure_backend/`, `controller` expõe a API, `service` contém regras de negócio, `repository` acessa dados, `model` define entidades, `DTO` define contratos HTTP e `security` trata autenticação e autorização. Os testes de integração usam H2 em memória.
+## 🚀 Tecnologias e Ferramentas
 
-## Executar localmente
+* **Linguagem:** Java 17
 
-Requisitos: JDK 17 ou superior, PostgreSQL disponível e acesso à rede na primeira execução do Maven Wrapper. O projeto compila para Java 17. Os testes desta revisão foram executados com JDK 21; a execução com JDK 17 não foi verificada neste ambiente.
+* **Framework:** Spring Boot 3.2.3
 
-1. Crie um banco local, por exemplo `hunails`, e um usuário com acesso a ele.
-2. Defina `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME`, `SPRING_DATASOURCE_PASSWORD` e `JWT_SECRET` no ambiente do processo. O segredo JWT deve ser aleatório e ter pelo menos 32 bytes. `JWT_EXPIRATION_MS` é opcional e vale 86400000 por padrão.
-3. Entre em `manicure_backend/` e execute o wrapper.
+* **Segurança:** Spring Security + JWT (JSON Web Tokens)
 
-Exemplo no PowerShell, com valores **fictícios** que devem ser substituídos por valores locais:
+* **Persistência de Dados:** Spring Data JPA / Hibernate
 
-```powershell
-$env:SPRING_DATASOURCE_URL='jdbc:postgresql://localhost:5432/hunails'
-$env:SPRING_DATASOURCE_USERNAME='example_user'
-$env:SPRING_DATASOURCE_PASSWORD='replace_with_local_password'
-$env:JWT_SECRET='replace_with_a_random_secret_of_at_least_32_bytes'
-cd manicure_backend
-.\mvnw.cmd spring-boot:run
+* **Banco de Dados:** PostgreSQL (Produção) e H2 Database (Testes em memória)
+
+* **Documentação:** Springdoc OpenAPI (Swagger)
+
+* **Deploy & Infraestrutura:** Docker, Multi-stage builds
+
+## 🏗️ Arquitetura e Padrões
+
+O projeto adota o padrão de arquitetura em camadas MVC/REST, garantindo separação de responsabilidades e código limpo:
+
+* **`controller/`**: Exposição dos endpoints REST e roteamento HTTP.
+
+* **`service/`**: Isolamento de todas as regras de negócio.
+
+* **`repository/`**: Interfaces do Spring Data para abstração do banco de dados.
+
+* **`model/`**: Entidades mapeadas para o banco relacional (ORM).
+
+* **`DTO/`**: Padrão *Data Transfer Object* rigorosamente implementado para blindar entidades e evitar vazamento de dados sensíveis (ex: senhas e hashes nunca chegam ao client).
+
+* **`security/`**: Filtros de autenticação stateless e interceptação de rotas.
+
+## 🔒 Segurança e Regras de Negócio
+
+A API foi projetada com fortes requisitos de segurança:
+
+* **Autorização Baseada em Regras:** Modificações de perfil (`PUT /usuarios/{id}`) e manipulação de agendamentos (`DELETE /agendamentos/{id}`) só podem ser feitas pelos próprios donos do recurso (retorna HTTP `403 Forbidden` em tentativas de violação).
+
+* **Filtragem de Perfis Públicos:** Endpoints como `GET /usuarios` expõem apenas dados de contato comercial para manicures (ex: WhatsApp, localização), enquanto dados privados de clientes (CEP, idade, email) são omitidos publicamente.
+
+* **Tratamento Global de Exceções:** Respostas HTTP padronizadas (`400 Bad Request`, `404 Not Found`, `409 Conflict` para agendamentos simultâneos).
+
+## 📄 Documentação da API (Swagger)
+
+A API é totalmente auto-documentada usando OpenAPI. Com a aplicação em execução, acesse a interface interativa do Swagger pelo navegador para testar os endpoints:
+
+👉 [**http://localhost:8080/swagger-ui.html**](http://localhost:8080/swagger-ui.html)
+
+*(O JSON completo do OpenAPI também pode ser acessado em `/v3/api-docs`)*
+
+## 🛠️ Como Executar Localmente
+
+### Pré-requisitos
+
+* JDK 17
+
+* PostgreSQL instalado (ou via Docker)
+
+* Git
+
+### 1. Clonar o repositório
+
+```
+git clone https://github.com/davs22/backend_hunails.git
+cd backend_hunails
+
 ```
 
-No Linux/macOS, use `export NOME=valor` e `./mvnw spring-boot:run`. O arquivo `.env.example` documenta nomes e formatos. **Spring Boot não carrega `.env` automaticamente**: exporte as variáveis no shell, configure a IDE ou use o painel de variáveis da plataforma. Não armazene segredos no Git. A aplicação falha ao iniciar se faltar configuração obrigatória.
+### 2. Configurar o Ambiente
 
-```powershell
-cd manicure_backend
-.\mvnw.cmd test
-.\mvnw.cmd package
+Crie um banco de dados no PostgreSQL (ex: `hunails_db`). O projeto não utiliza arquivos `.env` diretamente para maior segurança. Exporte as variáveis de ambiente no seu terminal ou configure-as na sua IDE copiando o modelo do arquivo `.env.example`:
+
+**No Windows (PowerShell):**
+
+```
+$env:SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/hunails_db"
+$env:SPRING_DATASOURCE_USERNAME="postgres"
+$env:SPRING_DATASOURCE_PASSWORD="sua_senha"
+$env:JWT_SECRET="sua_chave_secreta_com_mais_de_32_caracteres"
+
 ```
 
-Os testes ativam o perfil `test`, criam um H2 em memória e usam um segredo JWT fictício próprio. Não exigem PostgreSQL nem credenciais reais.
+**No Linux/macOS:**
 
-## Exemplos de API
+```
+export SPRING_DATASOURCE_URL="jdbc:postgresql://localhost:5432/hunails_db"
+export SPRING_DATASOURCE_USERNAME="postgres"
+export SPRING_DATASOURCE_PASSWORD="sua_senha"
+export JWT_SECRET="sua_chave_secreta_com_mais_de_32_caracteres"
 
-Os exemplos usam dados fictícios. O endpoint de cadastro aceita campos opcionais de perfil e `especialidade` para criar uma manicure:
-
-```http
-POST /auth/register
-Content-Type: application/json
-
-{"nome":"Ana Exemplo","email":"ana@example.invalid","senha":"senha-local-ficticia","especialidade":"unhas"}
 ```
 
-```http
-POST /auth/login
-Content-Type: application/json
+### 3. Executar o Projeto (Maven Wrapper)
 
-{"email":"ana@example.invalid","senha":"senha-local-ficticia"}
+Com as variáveis definidas no terminal, rode a aplicação:
+
+**Windows:** `.\mvnw.cmd spring-boot:run`
+**Linux/Mac:** `./mvnw spring-boot:run`
+
+*Nota: O projeto também inclui uma suíte de testes com banco em memória H2 que pode ser rodada via `./mvnw test`.*
+
+## 🐳 Executando com Docker
+
+Se preferir rodar sem precisar instalar o Java na sua máquina local, o projeto conta com um `Dockerfile` otimizado (Multi-stage build).
+
+1. Construa a imagem:
+
+```
+docker build -t hunails-backend .
+
 ```
 
-Use o `token` retornado no cabeçalho `Authorization: Bearer <token>`:
+2. Execute o contêiner passando as variáveis de ambiente:
 
-```http
-POST /agendamentos
-Authorization: Bearer <token>
-Content-Type: application/json
+```
+docker run -p 8080:8080 \
+  -e SPRING_DATASOURCE_URL="jdbc:postgresql://host.docker.internal:5432/hunails_db" \
+  -e SPRING_DATASOURCE_USERNAME="postgres" \
+  -e SPRING_DATASOURCE_PASSWORD="sua_senha" \
+  -e JWT_SECRET="sua_chave_secreta" \
+  hunails-backend
 
-{"manicureId":2,"descricao":"Manicure","data":"20/12/2030","hora":"14:00"}
 ```
 
-## Permissões e contratos
+## 📞 Contato
 
-- `PUT /usuarios/{id}` exige JWT e permite apenas atualizar a própria conta. Não há papel administrativo no projeto. O ID do corpo não concede permissão; `email` enviado na atualização continua ignorado.
-- `GET /usuarios`, `/usuarios/nome`, `/usuarios/manicures` e `/usuarios/{id}` permanecem públicos. Perfis públicos omitem email, CEP, idade e sexo. Dados de contato e localização de clientes também são omitidos; perfis de manicures mantêm telefone, WhatsApp, bairro/cidade/estado e coordenadas para descoberta e contato. A própria pessoa autenticada recebe seus dados completos. O campo `senha` foi removido de todas as respostas de perfil.
-- `GET /agendamentos/meus` lista agendamentos da pessoa autenticada como cliente; `GET /agendamentos/minha-agenda` lista os dela como manicure. `GET /agendamentos/{id}` e `DELETE /agendamentos/{id}` permitem apenas o cliente ou a manicure associados. O cancelamento mantém o comportamento anterior de exclusão do registro.
-- Todas as respostas de agendamento agora usam `AgendamentoDTO` com `idAgendamento`, `descricao`, `data`, `hora`, `valor`, `status`, `usuario` e `manicure`. Os usuários relacionados são DTOs sem senha/hash, com dados filtrados segundo a pessoa autenticada. O formato da data de **entrada** continua `dd/MM/yyyy` e o de **saída** continua `dd-MM-yyyy`; hora usa `HH:mm`.
-- `POST /posts` agora responde com `PostDTO` (os campos dos endpoints de listagem de posts), sem a entidade `author` aninhada. A autoria fica nos campos `idAuthor`, `authorNome`, `authorFoto` e `regiao`.
-- Falta de autenticação/JWT inválido ou expirado: 401. Acesso a conta ou agendamento alheio: 403. Registro inexistente: 404. Entrada inválida: 400. Horário ocupado: 409.
-
-Com a aplicação em execução, a documentação Springdoc fica em `/swagger-ui/index.html` e o JSON OpenAPI em `/v3/api-docs`. A interface não substitui o cabeçalho JWT nos endpoints privados.
-
-## Limitações e segurança operacional
-
-Os testes H2 cobrem os fluxos HTTP, autenticação, autorização e serialização, mas H2 não reproduz integralmente o PostgreSQL (tipos, concorrência, índices e detalhes de SQL). Não houve teste contra PostgreSQL neste ambiente. A verificação de horário ocupado ocorre na aplicação e não impede sozinha uma corrida entre reservas simultâneas. `spring.jpa.hibernate.ddl-auto=update` serve para desenvolvimento; migrações versionadas são recomendáveis antes de uso em produção.
-
-O repositório anteriormente rastreava `.env` com configurações de banco potencialmente válidas. Substitua a senha do banco e quaisquer credenciais associadas. Se o segredo JWT anteriormente usado foi implantado, substitua-o também, invalidando os tokens antigos. A remoção de arquivos da versão atual **não elimina valores do histórico Git**. Não foi reescrito o histórico nem feito force push.
-
-## Créditos
-
-HuNails e seus contribuidores, conforme o histórico Git do repositório. Esta documentação não atribui autoria individual além do que o histórico registra.
+Desenvolvido por **Matheus Diirr** e equipe HuNails. Se você gostou deste projeto, sinta-se à vontade para se conectar comigo através do Linkedln: www.linkedin.com/in/matheus-diirr !

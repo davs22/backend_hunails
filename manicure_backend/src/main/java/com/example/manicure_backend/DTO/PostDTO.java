@@ -15,11 +15,11 @@ public class PostDTO {
     private String urlImagem;
     private LocalDate data;
     
-    // 🔴 DADOS OBRIGATÓRIOS PARA O FRONT
+    // DADOS OBRIGATÓRIOS PARA O FRONT
     private Long idAuthor;
     private String authorNome; 
     private String authorFoto;
-    private String regiao; // 🚀 ADICIONADO AQUI!
+    private String regiao;
 
     private long likesCount;
     private boolean likedByMe;
