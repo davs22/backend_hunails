@@ -13,6 +13,7 @@ import java.util.List;
 @RequestMapping("/agendamentos")
 @RequiredArgsConstructor
 public class AgendamentoController {
+
     private final AgendamentoService service;
 
     @GetMapping("/meus")

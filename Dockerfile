@@ -1,30 +1,25 @@
-# Etapa 1: Build (Otimizada para Cache)
-FROM eclipse-temurin:17-jdk-alpine AS build
+# ESTÁGIO 1: Build (Compilação)
+# Usa uma imagem oficial do Maven com Java 17 para baixar as dependências e gerar o .jar
+FROM maven:3.9.6-eclipse-temurin-17 AS build
 WORKDIR /app
 
-# 1. COPIA ARQUIVOS ESSENCIAIS DO MAVEN: MUDANDO PARA APONTAR PARA A PASTA CORRETA
-# O contexto é BACKEND_MANICURE, os arquivos estão em manicure_backend/
-COPY manicure_backend/pom.xml .
-COPY manicure_backend/mvnw .
-COPY manicure_backend/.mvn .mvn
+# Copia os arquivos do projeto para dentro do contêiner
+COPY pom.xml .
+COPY src ./src
 
-# Dá permissão ao mvnw
-RUN chmod +x mvnw
+# Executa o Maven para construir o projeto, ignorando os testes para ser mais rápido
+RUN mvn clean package -DskipTests
 
-# Baixa as dependências
-RUN ./mvnw dependency:go-offline
-
-# 2. COPIA O RESTANTE DO CÓDIGO
-# MUDANDO PARA APONTAR PARA A PASTA CORRETA
-COPY manicure_backend/src src
-
-# Compila o projeto (pula testes para ser mais rápido)
-RUN ./mvnw clean package -DskipTests
-
-# Etapa 2: Execução
+# ESTÁGIO 2: Run (Execução)
+# Usa uma imagem minúscula do Java 17 (Alpine) apenas para rodar o app, economizando memória
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-# COPIA o JAR gerado no estágio 'build'
+
+# Copia apenas o arquivo .jar gerado no Estágio 1
 COPY --from=build /app/target/*.jar app.jar
+
+# Expõe a porta que o Spring Boot usa
 EXPOSE 8080
+
+# Comando para iniciar a aplicação
 ENTRYPOINT ["java", "-jar", "app.jar"]

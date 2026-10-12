@@ -1,11 +1,13 @@
 package com.example.manicure_backend.security;
 
 import io.jsonwebtoken.*;
+import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 
@@ -22,10 +24,19 @@ public class JwtUtil {
 
     @PostConstruct
     public void init() {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes());
+        byte[] keyBytes;
+        try {
+            // Tenta usar Base64 (recomendado para chaves fortes em produção)
+            keyBytes = Decoders.BASE64.decode(secret);
+        } catch (Exception e) {
+            // Fallback seguro caso seja uma string comum
+            keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        }
+        // Nota de Segurança: A chave no Discloud/ambiente local deve ter no mínimo 32 caracteres.
+        this.key = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    // ✅ TOKEN SIMPLES COM EMAIL
+    // GERAÇÃO DE TOKEN SIMPLES COM EMAIL
     public String generateToken(String email) {
         return Jwts.builder()
                 .setSubject(email)
@@ -35,7 +46,7 @@ public class JwtUtil {
                 .compact();
     }
 
-    // ✅ EXTRAIR EMAIL
+    // EXTRAIR EMAIL
     public String extractEmail(String token) {
         return Jwts.parserBuilder()
                 .setSigningKey(key)
@@ -45,7 +56,7 @@ public class JwtUtil {
                 .getSubject();
     }
 
-    // ✅ VALIDAR TOKEN
+    // VALIDAR TOKEN
     public boolean validateToken(String token) {
         try {
             extractEmail(token);
