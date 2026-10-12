@@ -1,6 +1,7 @@
 package com.example.manicure_backend.model;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference; // Importante trocar para ManagedReference se der erro de loop
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -29,6 +30,8 @@ public class Usuario {
     private Integer idade;
 
     @Column(nullable = false)
+    @JsonIgnore
+    @ToString.Exclude
     private String senha;
 
     @Column(nullable = false, unique = true)

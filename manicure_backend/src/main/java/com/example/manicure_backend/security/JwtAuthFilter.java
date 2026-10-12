@@ -28,12 +28,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+        if (authHeader != null) {
+            if (!authHeader.startsWith("Bearer ")) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
             String token = authHeader.substring(7);
 
-            if (jwtUtil.validateToken(token)
-                    && SecurityContextHolder.getContext().getAuthentication() == null) {
+            if (!jwtUtil.validateToken(token)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
                 String email = jwtUtil.extractEmail(token);
 

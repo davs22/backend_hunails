@@ -1,7 +1,7 @@
 package com.example.manicure_backend.controller;
 
 import com.example.manicure_backend.DTO.LoginRequest;
-import com.example.manicure_backend.DTO.UsuarioDTO;
+import com.example.manicure_backend.DTO.UsuarioRequestDTO;
 import com.example.manicure_backend.model.Usuario;
 import com.example.manicure_backend.security.JwtUtil;
 import com.example.manicure_backend.service.UsuarioService;
@@ -22,7 +22,7 @@ public class AuthController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody UsuarioDTO dto) {
+    public ResponseEntity<?> register(@RequestBody UsuarioRequestDTO dto) {
         try {
             Usuario novoUsuario = usuarioService.registrarUsuario(dto);
             Map<String, Object> response = new LinkedHashMap<>();
@@ -39,9 +39,12 @@ public class AuthController {
             response.put("latitude", novoUsuario.getLatitude());
             response.put("longitude", novoUsuario.getLongitude());
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (RuntimeException e) {
+        } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("erro", e.getMessage()));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("erro", "Dados invalidos"));
         }
     }
 

@@ -1,8 +1,11 @@
 package com.example.manicure_backend.service;
 
 import com.example.manicure_backend.DTO.UsuarioDTO;
+import com.example.manicure_backend.DTO.UsuarioRequestDTO;
+import com.example.manicure_backend.security.AuthenticatedUser;
 import com.example.manicure_backend.model.Complementos;
 import com.example.manicure_backend.model.Usuario;
+import com.example.manicure_backend.model.Sexo;
 import com.example.manicure_backend.repository.ComplementosRepository;
 import com.example.manicure_backend.repository.AnalyticsEventRepository;
 import com.example.manicure_backend.repository.AgendamentoRepository;
@@ -19,6 +22,8 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
@@ -40,6 +45,7 @@ public class UsuarioService implements UserDetailsService {
     private final DenunciaRepository denunciaRepository;
     private final AnalyticsEventRepository analyticsEventRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuthenticatedUser authenticatedUser;
 
     private static final Set<String> OFFENSIVE_TERMS = Set.of(
             "puta", "porra", "caralho", "buceta", "piranha", "vagabunda", "merda"
@@ -71,7 +77,7 @@ public class UsuarioService implements UserDetailsService {
         return OFFENSIVE_TERMS.stream().anyMatch(normalized::contains);
     }
 
-    private void validateUsuarioDTO(UsuarioDTO dto, boolean isUpdate) {
+    private void validateUsuarioDTO(UsuarioRequestDTO dto, boolean isUpdate) {
         if (!isUpdate || dto.getNome() != null) {
             String nome = dto.getNome() == null ? "" : dto.getNome().trim();
             if (nome.length() < 2 || nome.length() > 80) {
@@ -155,21 +161,21 @@ public class UsuarioService implements UserDetailsService {
         return UsuarioDTO.builder()
                 .idUsuario(user.getIdUsuario())
                 .nome(user.getNome())
-                .email(user.getEmail())
-                .idade(user.getIdade())
-                .sexo(user.getSexo())
+                .email(user.getIdUsuario().equals(meuId) ? user.getEmail() : null)
+                .idade(user.getIdUsuario().equals(meuId) ? user.getIdade() : null)
+                .sexo(user.getIdUsuario().equals(meuId) ? user.getSexo() : null)
                 .urlFotoPerfil(user.getUrlFotoPerfil())
-                .telefone(user.getTelefone())
-                .whatsapp(user.getWhatsapp())
-                .cep(user.getCep())
-                .bairro(user.getBairro())
-                .cidade(user.getCidade())
-                .estado(user.getEstado())
+                .telefone(isManicure || user.getIdUsuario().equals(meuId) ? user.getTelefone() : null)
+                .whatsapp(isManicure || user.getIdUsuario().equals(meuId) ? user.getWhatsapp() : null)
+                .cep(user.getIdUsuario().equals(meuId) ? user.getCep() : null)
+                .bairro(isManicure || user.getIdUsuario().equals(meuId) ? user.getBairro() : null)
+                .cidade(isManicure || user.getIdUsuario().equals(meuId) ? user.getCidade() : null)
+                .estado(isManicure || user.getIdUsuario().equals(meuId) ? user.getEstado() : null)
                 .biografia(user.getBiografia())
-                .latitude(user.getLatitude())
-                .longitude(user.getLongitude())
+                .latitude(isManicure || user.getIdUsuario().equals(meuId) ? user.getLatitude() : null)
+                .longitude(isManicure || user.getIdUsuario().equals(meuId) ? user.getLongitude() : null)
                 .especialidade(isManicure ? comp.getEspecialidade() : null)
-                .regiao(resolveRegiao(user))
+                .regiao(isManicure || user.getIdUsuario().equals(meuId) ? resolveRegiao(user) : null)
                 .isManicure(isManicure)
                 .seguidores(isManicure ? seguidores : 0)
                 .seguindo(isManicure ? seguindo : 0)
@@ -187,18 +193,22 @@ public class UsuarioService implements UserDetailsService {
     }
 
     @Transactional
-    public Usuario registrarUsuario(UsuarioDTO dto) {
+    public Usuario registrarUsuario(UsuarioRequestDTO dto) {
         validateUsuarioDTO(dto, false);
+        if (dto.getEmail() == null || dto.getEmail().isBlank()
+                || dto.getSenha() == null || dto.getSenha().isBlank()) {
+            throw new IllegalArgumentException("Email e senha obrigatorios.");
+        }
 
         if (usuarioRepository.findByEmail(dto.getEmail()).isPresent()) {
-            throw new RuntimeException("Email ja cadastrado");
+            throw new IllegalArgumentException("Email ja cadastrado");
         }
 
         Usuario usuario = Usuario.builder()
                 .nome(dto.getNome())
                 .email(dto.getEmail())
                 .idade(dto.getIdade())
-                .sexo(dto.getSexo())
+                .sexo(dto.getSexo() == null ? Sexo.F : dto.getSexo())
                 .urlFotoPerfil(dto.getUrlFotoPerfil())
                 .telefone(dto.getTelefone())
                 .whatsapp(dto.getWhatsapp())
@@ -226,10 +236,12 @@ public class UsuarioService implements UserDetailsService {
     }
 
     @Transactional
-    public Usuario atualizar(Long id, UsuarioDTO dto) {
+    public Usuario atualizar(Long id, UsuarioRequestDTO dto) {
+        authenticatedUser.requireOwner(id);
         validateUsuarioDTO(dto, true);
 
-        Usuario usuario = usuarioRepository.findById(id).orElseThrow();
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
 
         if (dto.getNome() != null) {
             usuario.setNome(dto.getNome());
@@ -295,7 +307,8 @@ public class UsuarioService implements UserDetailsService {
     }
 
     public UsuarioDTO buscarPorIdDTO(Long id, Long meuId) {
-        return toDTO(usuarioRepository.findById(id).orElseThrow(), meuId);
+        return toDTO(usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND)), meuId);
     }
 
     public List<UsuarioDTO> buscarPorNome(String nome, Long meuId) {

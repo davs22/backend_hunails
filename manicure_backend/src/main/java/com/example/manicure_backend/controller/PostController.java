@@ -47,10 +47,10 @@ public class PostController {
     public ResponseEntity<?> criarPost(@RequestBody Post post, @RequestHeader("Authorization") String authHeader) {
         try {
             String token = authHeader.replace("Bearer ", "");
-            Post salvo = postService.salvar(post, token);
+            PostDTO salvo = postService.salvarDTO(post, token);
             return ResponseEntity.ok(salvo);
         } catch (RuntimeException e) {
-            return ResponseEntity.status(403).body(e.getMessage());
+            return ResponseEntity.status(403).body("Operacao nao permitida");
         }
     }
 

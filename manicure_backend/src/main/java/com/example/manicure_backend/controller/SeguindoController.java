@@ -48,7 +48,6 @@ public class SeguindoController {
         } catch (NoSuchElementException e) {
             return ResponseEntity.notFound().build(); // Usuário alvo não existe
         } catch (Exception e) {
-            e.printStackTrace(); // Mostra erro no console do Java
             return ResponseEntity.internalServerError().build();
         }
     }

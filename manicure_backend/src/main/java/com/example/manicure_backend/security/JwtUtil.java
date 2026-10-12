@@ -50,7 +50,7 @@ public class JwtUtil {
         try {
             extractEmail(token);
             return true;
-        } catch (JwtException e) {
+        } catch (JwtException | IllegalArgumentException e) {
             return false;
         }
     }
