@@ -1,0 +1,11 @@
+.env
+**/.env
+**/target/
+*.jar
+*.zip
+*.class
+.idea/
+.vscode/
+.maven-cache/
+test-run.log
+*.log

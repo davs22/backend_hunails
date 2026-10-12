@@ -2,6 +2,7 @@ package com.example.manicure_backend.DTO;
 
 import com.example.manicure_backend.model.Sexo;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,12 +13,12 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class UsuarioDTO {
     private Long idUsuario;
     private String nome;
     private Integer idade;
     private String email;
-    private String senha;
     private String urlFotoPerfil;
     private String telefone;
     private String whatsapp;

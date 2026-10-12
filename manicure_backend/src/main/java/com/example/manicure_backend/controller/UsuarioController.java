@@ -1,9 +1,9 @@
 package com.example.manicure_backend.controller;
 
 import com.example.manicure_backend.DTO.UsuarioDTO;
+import com.example.manicure_backend.DTO.UsuarioRequestDTO;
 import com.example.manicure_backend.model.Usuario;
-import com.example.manicure_backend.repository.UsuarioRepository;
-import com.example.manicure_backend.security.JwtUtil;
+import com.example.manicure_backend.security.AuthenticatedUser;
 import com.example.manicure_backend.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,65 +15,28 @@ import java.util.List;
 @RequestMapping("/usuarios")
 @RequiredArgsConstructor
 public class UsuarioController {
-
     private final UsuarioService usuarioService;
-    private final UsuarioRepository usuarioRepository;
-    private final JwtUtil jwtUtil;
-
-    private Long getMeuId(String authHeader) {
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            try {
-                String token = authHeader.substring(7);
-                String email = jwtUtil.extractEmail(token);
-                return usuarioRepository.findByEmail(email).map(Usuario::getIdUsuario).orElse(null);
-            } catch (Exception ignored) {
-            }
-        }
-        return null;
-    }
+    private final AuthenticatedUser authenticatedUser;
 
     @GetMapping("/{id}")
-    public ResponseEntity<UsuarioDTO> buscarPorId(
-            @PathVariable Long id,
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        Long meuId = getMeuId(authHeader);
-        return ResponseEntity.ok(usuarioService.buscarPorIdDTO(id, meuId));
+    public ResponseEntity<UsuarioDTO> buscarPorId(@PathVariable Long id) {
+        return ResponseEntity.ok(usuarioService.buscarPorIdDTO(id, authenticatedUser.optionalId()));
     }
 
     @GetMapping("/nome")
-    public ResponseEntity<List<UsuarioDTO>> buscarPorNome(
-            @RequestParam String nome,
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        Long meuId = getMeuId(authHeader);
-        return ResponseEntity.ok(usuarioService.buscarPorNome(nome, meuId));
+    public ResponseEntity<List<UsuarioDTO>> buscarPorNome(@RequestParam String nome) {
+        return ResponseEntity.ok(usuarioService.buscarPorNome(nome, authenticatedUser.optionalId()));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<UsuarioDTO> atualizar(
-            @PathVariable Long id,
-            @RequestBody UsuarioDTO dto,
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        try {
-            Long meuId = getMeuId(authHeader);
-            Usuario atualizado = usuarioService.atualizar(id, dto);
-            return ResponseEntity.ok(usuarioService.toDTO(atualizado, meuId));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().build();
-        }
+    public ResponseEntity<UsuarioDTO> atualizar(@PathVariable Long id, @RequestBody UsuarioRequestDTO dto) {
+        Usuario atualizado = usuarioService.atualizar(id, dto);
+        return ResponseEntity.ok(usuarioService.toDTO(atualizado, atualizado.getIdUsuario()));
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<Void> excluirMinhaConta(
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        Long meuId = getMeuId(authHeader);
-        if (meuId == null) {
-            return ResponseEntity.status(401).build();
-        }
-        usuarioService.excluirConta(meuId);
+    public ResponseEntity<Void> excluirMinhaConta() {
+        usuarioService.excluirConta(authenticatedUser.require().getIdUsuario());
         return ResponseEntity.noContent().build();
     }
 
@@ -82,18 +45,13 @@ public class UsuarioController {
             @RequestParam(value = "q", required = false) String q,
             @RequestParam(value = "bairro", required = false) String bairro,
             @RequestParam(value = "cidade", required = false) String cidade,
-            @RequestParam(value = "estado", required = false) String estado,
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        Long meuId = getMeuId(authHeader);
-        return ResponseEntity.ok(usuarioService.listarApenasManicures(q, bairro, cidade, estado, meuId));
+            @RequestParam(value = "estado", required = false) String estado) {
+        return ResponseEntity.ok(usuarioService.listarApenasManicures(q, bairro, cidade, estado,
+                authenticatedUser.optionalId()));
     }
 
     @GetMapping
-    public ResponseEntity<List<UsuarioDTO>> listarTodos(
-            @RequestHeader(value = "Authorization", required = false) String authHeader
-    ) {
-        Long meuId = getMeuId(authHeader);
-        return ResponseEntity.ok(usuarioService.buscarPorNome("", meuId));
+    public ResponseEntity<List<UsuarioDTO>> listarTodos() {
+        return ResponseEntity.ok(usuarioService.buscarPorNome("", authenticatedUser.optionalId()));
     }
 }

@@ -1,61 +1,80 @@
 package com.example.manicure_backend.service;
 
+import com.example.manicure_backend.DTO.AgendamentoDTO;
 import com.example.manicure_backend.DTO.AgendamentoRequestDTO;
-import com.example.manicure_backend.model.*;
-import com.example.manicure_backend.repository.*;
-import com.example.manicure_backend.security.JwtUtil;
+import com.example.manicure_backend.model.Agendamento;
+import com.example.manicure_backend.model.StatusAgendamento;
+import com.example.manicure_backend.model.Usuario;
+import com.example.manicure_backend.repository.AgendamentoRepository;
+import com.example.manicure_backend.repository.ComplementosRepository;
+import com.example.manicure_backend.repository.UsuarioRepository;
+import com.example.manicure_backend.security.AuthenticatedUser;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class AgendamentoService {
-
     private final AgendamentoRepository repository;
-    private final UsuarioRepository usuarioRepository;
-    private final ComplementosRepository complementosRepository;
-    private final JwtUtil jwtUtil;
+    private final UsuarioRepository usuarios;
+    private final ComplementosRepository complementos;
+    private final AuthenticatedUser authenticatedUser;
+    private final UsuarioService usuarioService;
 
-    // CLIENTE: Meus agendamentos
-    public List<Agendamento> listarMeusAgendamentos(String token) {
-        String email = jwtUtil.extractEmail(token); // Token já vem sem Bearer do controller
-        Usuario cliente = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário não encontrado"));
-        return repository.findByUsuario_IdUsuario(cliente.getIdUsuario());
-    }
-
-    // MANICURE: Minha agenda
-    public List<Agendamento> listarAgendaManicurePeloLogin() {
-        // 1. Pega o email de quem está logado
-        String email = SecurityContextHolder.getContext().getAuthentication().getPrincipal().toString();
-        
-        // 2. Busca o ID desse usuário
-        Usuario usuario = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Usuário logado não encontrado."));
-        
-        // 4. Busca direto no banco tudo que tiver o ID dela na coluna 'id_manicure'
-        return repository.findByManicure_IdUsuario(usuario.getIdUsuario());
-    }
-
-    public Agendamento criar(AgendamentoRequestDTO dto, String token) {
-        String email = jwtUtil.extractEmail(token);
-        Usuario cliente = usuarioRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("Cliente não encontrado"));
-
-        Usuario manicure = usuarioRepository.findById(dto.getManicureId())
-                .orElseThrow(() -> new RuntimeException("Manicure não encontrada"));
-
-        // Validação se o alvo é manicure
-        complementosRepository.findByUsuario_IdUsuario(manicure.getIdUsuario())
-                .orElseThrow(() -> new RuntimeException("Usuário selecionado não é manicure"));
-
-        if(repository.existsByManicure_IdUsuarioAndDataAndHora(manicure.getIdUsuario(), dto.getData(), dto.getHora())) {
-             throw new RuntimeException("Horário já ocupado");
+    private Agendamento requireParticipant(Long id, Long requesterId) {
+        Agendamento agendamento = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (!agendamento.getUsuario().getIdUsuario().equals(requesterId)
+                && !agendamento.getManicure().getIdUsuario().equals(requesterId)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
+        return agendamento;
+    }
 
+    private AgendamentoDTO toDTO(Agendamento entity, Long requesterId) {
+        AgendamentoDTO dto = new AgendamentoDTO();
+        dto.setIdAgendamento(entity.getIdAgendamento());
+        dto.setDescricao(entity.getDescricao());
+        dto.setData(entity.getData());
+        dto.setHora(entity.getHora());
+        dto.setValor(entity.getValor());
+        dto.setStatus(entity.getStatus());
+        dto.setUsuario(usuarioService.toDTO(entity.getUsuario(), requesterId));
+        dto.setManicure(usuarioService.toDTO(entity.getManicure(), requesterId));
+        return dto;
+    }
+
+    @Transactional(readOnly = true)
+    public List<AgendamentoDTO> listarMeusAgendamentos() {
+        Long id = authenticatedUser.require().getIdUsuario();
+        return repository.findByUsuario_IdUsuario(id).stream().map(a -> toDTO(a, id)).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<AgendamentoDTO> listarAgendaManicurePeloLogin() {
+        Long id = authenticatedUser.require().getIdUsuario();
+        return repository.findByManicure_IdUsuario(id).stream().map(a -> toDTO(a, id)).toList();
+    }
+
+    @Transactional
+    public AgendamentoDTO criar(AgendamentoRequestDTO dto) {
+        Usuario cliente = authenticatedUser.require();
+        if (dto == null || dto.getManicureId() == null || dto.getData() == null || dto.getHora() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        }
+        Usuario manicure = usuarios.findById(dto.getManicureId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        if (complementos.findByUsuario_IdUsuario(manicure.getIdUsuario()).isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Usuario selecionado nao e manicure");
+        }
+        if (repository.existsByManicure_IdUsuarioAndDataAndHora(manicure.getIdUsuario(), dto.getData(), dto.getHora())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Horario ocupado");
+        }
         Agendamento agendamento = new Agendamento();
         agendamento.setUsuario(cliente);
         agendamento.setManicure(manicure);
@@ -64,15 +83,18 @@ public class AgendamentoService {
         agendamento.setHora(dto.getHora());
         agendamento.setStatus(StatusAgendamento.AGENDADO);
         agendamento.setValor(0.0);
-
-        return repository.save(agendamento);
+        return toDTO(repository.save(agendamento), cliente.getIdUsuario());
     }
 
+    @Transactional
     public void deletar(Long id) {
-        repository.deleteById(id);
+        Long requesterId = authenticatedUser.require().getIdUsuario();
+        repository.delete(requireParticipant(id, requesterId));
     }
 
-    public Optional<Agendamento> buscarPorId(Long id) {
-        return repository.findById(id);
+    @Transactional(readOnly = true)
+    public AgendamentoDTO buscarPorId(Long id) {
+        Long requesterId = authenticatedUser.require().getIdUsuario();
+        return toDTO(requireParticipant(id, requesterId), requesterId);
     }
 }

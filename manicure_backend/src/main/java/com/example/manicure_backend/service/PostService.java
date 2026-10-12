@@ -200,6 +200,12 @@ public class PostService {
         return postRepository.save(post);
     }
 
+    @Transactional
+    public PostDTO salvarDTO(Post post, String token) {
+        Post saved = salvar(post, token);
+        return toDTO(saved, saved.getAuthor());
+    }
+
     public List<PostDTO> listarPostsPorUsuarioLogado(String token) {
         String email = jwtUtil.extractEmail(token);
         Usuario user = usuarioRepository.findByEmail(email).orElseThrow();
